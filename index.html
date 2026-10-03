@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Safarz — Karachi bus finder</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <style>
+      :root {
+        --ink: #123839;
+        --ink-soft: #62716c;
+        --paper: #f3eee4;
+        --card: #fcfaf4;
+        --line: #d8d0c2;
+        --mint: #d8dc67;
+        --mint-deep: #a2a746;
+        --coral: #d95d43;
+        --sky: #d2dfd8;
+        --lavender: #e8ddc7;
+        --shadow: 0 24px 60px rgba(29, 50, 43, .11);
+        --radius-xl: 30px;
+        --radius-lg: 20px;
+        --radius-md: 13px;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--paper);
+        font-family: "DM Sans", system-ui, sans-serif;
+        transition: background .25s ease, color .25s ease;
+      }
+      body.dark {
+        --ink: #f1e9dc;
+        --ink-soft: #aab8ac;
+        --paper: #102d2e;
+        --card: #173a39;
+        --line: #355451;
+        --mint: #d6d966;
+        --coral: #f27c5b;
+        --shadow: 0 24px 60px rgba(0, 0, 0, .26);
+      }
+      button, input { font: inherit; }
+      button { cursor: pointer; }
+      .app-shell { max-width: 1500px; min-height: 100vh; margin: auto; }
+      .topbar {
+        height: 82px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 0 42px;
+        border-bottom: 1px solid var(--line);
+      }
+      .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+      .brand-mark {
+        width: 42px; height: 42px; display: grid; place-items: center;
+        background: var(--coral); color: var(--paper); border-radius: 13px;
+        font-size: 21px; font-weight: 700; transform: rotate(-5deg);
+      }
+      .brand-copy { line-height: 1; }
+      .brand-name { font-size: 22px; font-weight: 700; letter-spacing: -.05em; }
+      .brand-tagline { color: var(--ink-soft); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; margin-top: 6px; }
+      .top-actions { display: flex; align-items: center; gap: 13px; }
+      .language-switch {
+        display: flex; align-items: center; padding: 4px; gap: 2px;
+        border: 1px solid var(--line); border-radius: 99px; background: var(--card);
+      }
+      .language-switch button {
+        border: 0; border-radius: 99px; background: transparent; color: var(--ink-soft);
+        padding: 8px 11px; font-size: 12px; font-weight: 600;
+      }
+      .language-switch button.active { background: var(--ink); color: var(--paper); }
+      .icon-btn {
+        border: 1px solid var(--line); background: var(--card); color: var(--ink);
+        border-radius: 99px; height: 39px; padding: 0 14px; font-size: 12px; font-weight: 600;
+      }
+      .icon-btn { width: 39px; padding: 0; font-size: 17px; }
+      .avatar { width: 20px; height: 20px; display: grid; place-items: center; background: var(--mint); color: var(--ink); border-radius: 50%; font-size: 11px; }
+
+      .page { padding: 42px; }
+      .hero {
+        display: grid; grid-template-columns: 1.1fr .9fr; gap: 24px; align-items: stretch;
+        margin-bottom: 30px;
+      }
+      .hero-copy { padding: 25px 0 19px; }
+      .eyebrow { display: flex; align-items: center; gap: 9px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .16em; font-size: 10px; font-weight: 700; }
+      .live-dot { width: 7px; height: 7px; background: var(--coral); border-radius: 50%; box-shadow: 0 0 0 5px rgba(250, 128, 104, .15); }
+      h1 { max-width: 700px; font-family: "Playfair Display", Georgia, serif; font-size: clamp(43px, 5vw, 72px); line-height: .98; letter-spacing: -.06em; margin: 20px 0 17px; }
+      h1 em { color: var(--coral); font-weight: 500; }
+      .hero-copy p { max-width: 490px; color: var(--ink-soft); font-size: 16px; line-height: 1.6; margin: 0; }
+      .hero-art {
+        min-height: 278px; background-color: var(--ink); background-image: linear-gradient(90deg, rgba(8, 33, 34, .8), rgba(8, 33, 34, .08)), url("/public/images/ev-bus.jpeg"); background-size: cover; background-position: center 58%; position: relative; overflow: hidden;
+        border-radius: var(--radius-xl); padding: 24px; isolation: isolate;
+      }
+      .hero-art::before, .hero-art::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid rgba(255,249,231,.2); z-index: -1; }
+      .hero-art::before { width: 390px; height: 390px; right: -110px; top: -142px; }
+      .hero-art::after { width: 270px; height: 270px; right: -45px; top: -80px; }
+      .route-note { display: inline-flex; gap: 7px; align-items: center; padding: 9px 12px; color: var(--paper); background: rgba(18,56,57,.76); border: 1px solid rgba(255,249,231,.24); border-radius: 8px; font: 11px "DM Mono", monospace; }
+      .bus-illustration { display: none; position: absolute; right: 23px; bottom: 15px; width: 205px; height: 108px; background: var(--ink); border-radius: 24px 24px 10px 10px; box-shadow: 0 17px 0 rgba(20,32,30,.12); }
+      .bus-illustration::before { content: ""; position: absolute; inset: 15px 15px 41px; background: var(--sky); border-radius: 10px 10px 3px 3px; }
+      .bus-illustration::after { content: "SAFAR"; position: absolute; left: 29px; top: 27px; color: var(--ink); font: 11px "DM Mono", monospace; letter-spacing: .1em; }
+      .wheel { position: absolute; width: 29px; height: 29px; bottom: -11px; background: var(--ink); border: 7px solid var(--paper); border-radius: 50%; }
+      .wheel.one { left: 28px; } .wheel.two { right: 28px; }
+      .main-grid { display: grid; grid-template-columns: minmax(420px, .78fr) minmax(450px, 1.22fr); gap: 24px; align-items: start; }
+      .search-panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-xl); padding: 25px; box-shadow: var(--shadow); }
+      .panel-heading { display: flex; justify-content: space-between; gap: 15px; align-items: flex-start; margin-bottom: 22px; }
+      .panel-heading h2 { margin: 0; font-size: 21px; letter-spacing: -.04em; }
+      .panel-heading p { color: var(--ink-soft); margin: 7px 0 0; font-size: 12px; line-height: 1.4; }
+      .step-label { display: block; color: var(--ink-soft); font: 10px "DM Mono", monospace; text-transform: uppercase; letter-spacing: .13em; margin: 0 0 8px 2px; }
+      .location-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+      .input-wrap { position: relative; }
+      .input-wrap input {
+        width: 100%; height: 50px; padding: 0 15px 0 39px; color: var(--ink);
+        background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-md); outline: none;
+      }
+      .input-wrap input:focus { border-color: var(--mint-deep); box-shadow: 0 0 0 3px rgba(144,188,44,.16); }
+      .input-icon { position: absolute; left: 14px; top: 15px; color: var(--ink-soft); font-size: 15px; }
+      .locate-btn { height: 50px; border: 0; border-radius: var(--radius-md); background: var(--sky); color: var(--ink); padding: 0 14px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+      .swap-line { height: 31px; border-left: 1px dashed var(--line); margin-left: 22px; position: relative; }
+      .swap-button { position: absolute; top: 3px; left: -15px; width: 29px; height: 29px; border: 1px solid var(--line); background: var(--card); color: var(--ink-soft); border-radius: 50%; font-size: 15px; }
+      .recent-stop { display: inline-flex; align-items: center; gap: 7px; margin-top: 10px; color: var(--ink-soft); font-size: 11px; }
+      .recent-stop b { color: var(--ink); font-weight: 600; }
+      .pin { color: var(--coral); }
+      .search-submit { width: 100%; height: 52px; border: 0; margin-top: 24px; border-radius: var(--radius-md); background: var(--ink); color: var(--paper); font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform .2s, background .2s; }
+      .search-submit:hover { transform: translateY(-2px); background: #253a34; }
+      .search-submit span { color: var(--mint); font-size: 19px; }
+      .search-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; color: var(--ink-soft); font-size: 11px; }
+      .gps-status { display: flex; align-items: center; gap: 6px; }
+      .status-dot { width: 6px; height: 6px; background: var(--mint-deep); border-radius: 50%; }
+      .results-panel { min-width: 0; }
+      .results-header { display: flex; align-items: center; justify-content: space-between; margin: 3px 0 13px; }
+      .results-title { font-size: 12px; font-weight: 700; }
+      .results-title span { color: var(--ink-soft); font-weight: 400; margin-left: 5px; }
+      .sort-btn { border: 0; background: transparent; color: var(--ink-soft); font-size: 11px; }
+      .map-card { position: relative; height: 264px; border: 1px solid var(--line); border-radius: var(--radius-xl); overflow: hidden; background: #b7c9bf; }
+      .leaflet-map { position: absolute; inset: 0; z-index: 0; }
+      .map-card.live-map .map-grid, .map-card.live-map .map-water, .map-card.live-map .route-line, .map-card.live-map .map-label { display: none; }
+      .map-card.live-map .map-legend { z-index: 500; }
+      body.dark .map-card { background: #294847; }
+      .map-grid { position: absolute; inset: 0; opacity: .55; background-image: linear-gradient(33deg, transparent 47%, rgba(255,255,255,.74) 48%, rgba(255,255,255,.74) 50%, transparent 51%), linear-gradient(116deg, transparent 46%, rgba(255,255,255,.66) 47%, rgba(255,255,255,.66) 49%, transparent 50%), linear-gradient(8deg, transparent 48%, rgba(120,153,142,.32) 49%, rgba(120,153,142,.32) 51%, transparent 52%); background-size: 135px 90px, 190px 140px, 180px 115px; }
+      .map-water { position: absolute; left: -9%; bottom: -32%; width: 117%; height: 52%; background: #a5ccca; transform: rotate(-7deg); border-top: 10px solid rgba(255,255,255,.37); }
+      .route-line { position: absolute; inset: 0; width: 100%; height: 100%; }
+      .map-label { position: absolute; font: 10px "DM Mono", monospace; color: rgba(20,32,30,.64); background: rgba(255,255,255,.55); padding: 5px 7px; border-radius: 5px; }
+      .map-label.a { left: 11%; top: 19%; } .map-label.b { left: 53%; top: 41%; } .map-label.c { right: 8%; top: 17%; } .map-label.d { left: 34%; bottom: 15%; }
+      .map-legend { position: absolute; left: 15px; bottom: 14px; display: flex; gap: 7px; padding: 8px 10px; border-radius: 8px; background: rgba(255,254,250,.8); font-size: 10px; color: var(--ink); }
+      .legend-line { width: 21px; height: 3px; border-radius: 9px; background: var(--coral); margin-top: 4px; }
+      .map-zoom { position: absolute; right: 14px; bottom: 13px; overflow: hidden; border-radius: 8px; background: rgba(255,254,250,.84); }
+      .map-zoom button { display: block; border: 0; background: transparent; color: var(--ink); width: 29px; height: 27px; font-size: 17px; }
+      .map-zoom button + button { border-top: 1px solid var(--line); }
+      .route-card { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 17px; margin-top: 12px; transition: border .2s, transform .2s; overflow: hidden; }
+      .route-card:hover { border-color: var(--mint-deep); transform: translateY(-2px); }
+      .route-photo { height: 76px; margin: -17px -17px 15px; position: relative; overflow: hidden; background: var(--ink); }
+      .route-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(11, 35, 36, .64), transparent 70%); }
+      .route-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 52%; filter: saturate(.82) contrast(1.04); }
+      .route-photo span { position: absolute; z-index: 1; left: 12px; bottom: 10px; color: #fff9ed; font: 10px "DM Mono", monospace; letter-spacing: .08em; text-transform: uppercase; }
+      .route-top { display: flex; justify-content: space-between; gap: 13px; align-items: flex-start; }
+      .route-name { display: flex; align-items: center; gap: 9px; }
+      .route-badge { min-width: 44px; padding: 6px 7px; border-radius: 7px; background: var(--mint); color: var(--ink); font: 11px "DM Mono", monospace; text-align: center; font-weight: 500; }
+      .route-badge.fuel { background: var(--lavender); }
+      .route-name strong { display: block; font-size: 14px; }
+      .route-name small { display: block; color: var(--ink-soft); margin-top: 4px; font-size: 10px; }
+      .route-time { text-align: right; }
+      .route-time strong { display: block; font: 15px "DM Mono", monospace; }
+      .route-time small { color: var(--ink-soft); font-size: 10px; }
+      .stops-line { display: flex; align-items: center; gap: 8px; padding: 16px 0 12px; color: var(--ink-soft); font-size: 11px; }
+      .station { width: 8px; height: 8px; border: 2px solid var(--coral); background: var(--card); border-radius: 50%; }
+      .station.end { background: var(--coral); }
+      .track { flex: 1; height: 2px; background: var(--line); position: relative; }
+      .track::after { content: ""; position: absolute; left: 19%; right: 15%; top: -1px; height: 4px; background: var(--coral); border-radius: 8px; }
+      .route-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+      .route-legs { padding: 0 0 12px; color: var(--ink-soft); font-size: 11px; line-height: 1.6; }
+      .route-legs b { color: var(--ink); }
+      .route-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+      .tag { color: var(--ink-soft); background: var(--paper); border-radius: 5px; padding: 6px 7px; font-size: 10px; }
+      .tag.ac { color: #337b77; } .tag.wheel { color: #6b56a5; }
+      .fare-btn { border: 0; background: transparent; color: var(--coral); font-size: 11px; font-weight: 700; padding: 6px 0; }
+      .fare-detail { display: none; padding-top: 11px; margin-top: 11px; border-top: 1px dashed var(--line); font-size: 11px; color: var(--ink-soft); }
+      .fare-detail.open { display: flex; justify-content: space-between; }
+      .fare-price { color: var(--ink); font: 13px "DM Mono", monospace; font-weight: 500; }
+      .empty-results { display: none; color: var(--ink-soft); padding: 40px 20px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius-lg); }
+
+      .chat-launcher { position: fixed; right: 30px; bottom: 27px; z-index: 20; display: flex; align-items: center; gap: 9px; padding: 0 16px 0 7px; height: 51px; background: var(--ink); color: var(--paper); border: 4px solid var(--paper); border-radius: 99px; box-shadow: 0 9px 25px rgba(20,32,30,.2); font-size: 12px; font-weight: 700; }
+      .chat-avatar { width: 33px; height: 33px; display: grid; place-items: center; background: var(--mint); color: var(--ink); border-radius: 50%; font-size: 17px; }
+      .chat-window { display: none; position: fixed; right: 30px; bottom: 89px; width: min(370px, calc(100vw - 30px)); z-index: 21; overflow: hidden; background: var(--card); border: 1px solid var(--line); border-radius: 23px; box-shadow: var(--shadow); }
+      .chat-window.open { display: block; animation: rise .2s ease-out; }
+      @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      .chat-head { display: flex; justify-content: space-between; align-items: center; padding: 17px; color: var(--paper); background: var(--ink); }
+      .chat-person { display: flex; gap: 10px; align-items: center; }
+      .chat-person .chat-avatar { width: 35px; height: 35px; }
+      .chat-person strong { display: block; font-size: 13px; }
+      .chat-person small { display: block; color: var(--mint); font-size: 10px; margin-top: 4px; }
+      .chat-close { border: 0; background: transparent; color: var(--paper); font-size: 20px; }
+      .chat-messages { padding: 16px; height: 265px; overflow-y: auto; background: var(--paper); }
+      .message { max-width: 87%; padding: 10px 12px; border-radius: 13px 13px 13px 3px; background: var(--card); border: 1px solid var(--line); font-size: 12px; line-height: 1.45; margin-bottom: 10px; }
+      .message.user { margin-left: auto; background: var(--mint); border: 0; border-radius: 13px 13px 3px 13px; }
+      .quick-replies { display: flex; gap: 7px; padding: 0 16px 13px; overflow-x: auto; background: var(--paper); }
+      .quick-replies button { white-space: nowrap; border: 1px solid var(--line); color: var(--ink-soft); background: var(--card); border-radius: 99px; padding: 7px 10px; font-size: 10px; }
+      .chat-input { display: flex; gap: 7px; padding: 12px; border-top: 1px solid var(--line); }
+      .chat-input input { flex: 1; min-width: 0; border: 0; outline: 0; background: var(--paper); color: var(--ink); border-radius: 10px; padding: 10px; font-size: 11px; }
+      .chat-send { width: 38px; border: 0; border-radius: 10px; color: var(--ink); background: var(--mint); font-size: 17px; }
+      .modal-backdrop { display: none; place-items: center; position: fixed; inset: 0; z-index: 30; padding: 20px; background: rgba(20,32,30,.48); }
+      .modal-backdrop.open { display: grid; }
+      .modal { width: min(400px, 100%); position: relative; background: var(--card); border-radius: 24px; padding: 28px; box-shadow: var(--shadow); }
+      .modal h3 { margin: 0 0 8px; font-size: 25px; letter-spacing: -.05em; }
+      .modal p { color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+      .modal .input-wrap { margin: 18px 0 10px; }
+      .modal .input-wrap input { padding-left: 14px; }
+      .modal .search-submit { margin-top: 8px; }
+      .modal-close { position: absolute; top: 17px; right: 18px; border: 0; background: transparent; color: var(--ink-soft); font-size: 22px; }
+      [dir="rtl"] { font-family: "Noto Naskh Arabic", "DM Sans", sans-serif; }
+      [dir="rtl"] .brand-tagline, [dir="rtl"] .eyebrow, [dir="rtl"] .step-label, [dir="rtl"] .route-badge { letter-spacing: 0; }
+      [dir="rtl"] .input-wrap input { padding-left: 15px; padding-right: 39px; }
+      [dir="rtl"] .input-icon { left: auto; right: 14px; }
+      [dir="rtl"] .swap-line { margin-left: 0; margin-right: 22px; }
+      [dir="rtl"] .swap-button { left: auto; right: -15px; }
+      [dir="rtl"] .route-time { text-align: left; }
+      [dir="rtl"] .message.user { margin-left: 0; margin-right: auto; border-radius: 13px 13px 13px 3px; }
+      [dir="rtl"] .message { border-radius: 13px 13px 3px 13px; }
+
+      @media (max-width: 930px) {
+        .topbar { padding: 0 22px; } .page { padding: 28px 22px; }
+        .hero { grid-template-columns: 1fr; } .hero-art { min-height: 220px; }
+        .main-grid { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 600px) {
+        .topbar { height: auto; min-height: 76px; padding: 14px 16px; align-items: flex-start; }
+        .top-actions { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+        .brand-tagline { display: none; } .brand-name { font-size: 19px; } .brand-mark { width: 37px; height: 37px; }
+        .language-switch button { padding: 6px 7px; font-size: 10px; }
+        .icon-btn { width: 34px; height: 34px; } .page { padding: 22px 14px 100px; }
+        h1 { font-size: 46px; } .hero-copy { padding-top: 8px; }
+        .hero-art { min-height: 180px; } .bus-illustration { transform: scale(.77); transform-origin: right bottom; }
+        .search-panel { padding: 19px; } .location-row { grid-template-columns: 1fr; } .locate-btn { width: 100%; }
+        .map-card { height: 220px; } .route-footer { align-items: flex-end; } .route-tags { max-width: 70%; }
+        .chat-launcher { right: 15px; bottom: 15px; } .chat-window { right: 15px; bottom: 76px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#">
+          <span class="brand-mark">↗</span>
+          <span class="brand-copy"><span class="brand-name" id="brandName">safarz</span><span class="brand-tagline" data-i18n="tagline">karachi bus finder</span></span>
+        </a>
+        <div class="top-actions">
+          <div class="language-switch" aria-label="Language">
+            <button class="active" data-language="en">EN</button>
+            <button data-language="ur">اردو</button>
+            <button data-language="roman">Roman</button>
+          </div>
+          <button class="icon-btn" id="themeToggle" aria-label="Toggle theme">☼</button>
+        </div>
+      </header>
+
+      <main class="page">
+        <section class="hero">
+          <div class="hero-copy">
+            <div class="eyebrow"><span class="live-dot"></span><span data-i18n="eyebrow">your everyday route, sorted</span></div>
+            <h1 data-i18n="heroTitle">Go places.<br><em>Not in circles.</em></h1>
+            <p data-i18n="heroBody">Find the right bus from the stop closest to you — with clear timing, simple transfers, and the fare before you leave.</p>
+          </div>
+          <div class="hero-art">
+            <div class="route-note">● <span data-i18n="serving">serving karachi, one stop at a time</span></div>
+            <div class="bus-illustration"><span class="wheel one"></span><span class="wheel two"></span></div>
+          </div>
+        </section>
+
+        <section class="main-grid">
+          <div class="search-panel">
+            <div class="panel-heading">
+              <div><h2 data-i18n="planTrip">Plan your trip</h2><p data-i18n="planSub">Tell us where you are and where you're headed.</p></div>
+              <span style="font: 11px 'DM Mono', monospace; color: var(--ink-soft)">01 / 02</span>
+            </div>
+
+            <label class="step-label" data-i18n="from">from</label>
+            <div class="location-row">
+              <div class="input-wrap"><span class="input-icon">⌖</span><input id="fromInput" list="stopSuggestions" value="Gulshan Chowrangi" data-placeholder="fromPlaceholder" aria-label="Pickup stop" /></div>
+              <button class="locate-btn" id="locateBtn">◎ <span data-i18n="useLocation">Use my location</span></button>
+            </div>
+            <div class="recent-stop"><span class="pin">●</span><span data-i18n="recent">Recent:</span> <b>Gulshan Chowrangi</b></div>
+
+            <div class="swap-line"><button class="swap-button" id="swapBtn" aria-label="Swap stops">↕</button></div>
+            <label class="step-label" data-i18n="to">to</label>
+            <div class="input-wrap"><span class="input-icon">⌖</span><input id="toInput" list="stopSuggestions" value="Tower" data-placeholder="toPlaceholder" aria-label="Destination stop" /></div>
+            <datalist id="stopSuggestions"></datalist>
+            <div class="recent-stop"><span class="pin">●</span><span data-i18n="trySearch">Try:</span> <b>Clifton, Tariq Road, Korangi</b></div>
+
+            <button class="search-submit" id="searchBtn"><span>↗</span><span data-i18n="findBuses">Find buses</span></button>
+            <div class="search-meta"><span class="gps-status"><span class="status-dot"></span><span data-i18n="backendReady">Live route data connected</span></span><span>⌘ K</span></div>
+          </div>
+
+          <div class="results-panel">
+            <div class="results-header"><div class="results-title"><span data-i18n="resultsFor">routes for</span> <span id="routeSummary">Gulshan-e-Iqbal → Saddar</span></div><button class="sort-btn" id="sortBtn" data-i18n="sort">Sort: shortest distance ↓</button></div>
+            <div class="map-card">
+              <div id="leafletMap" class="leaflet-map" aria-label="Live route map"></div>
+              <div class="map-grid"></div><div class="map-water"></div>
+              <svg class="route-line" viewBox="0 0 800 300" preserveAspectRatio="none" aria-label="Route map">
+                <path d="M92 74 C 170 124, 198 206, 297 183 S 442 82, 534 127 S 650 180, 714 85" fill="none" stroke="#fffefa" stroke-width="12" stroke-linecap="round" opacity=".9"/>
+                <path d="M92 74 C 170 124, 198 206, 297 183 S 442 82, 534 127 S 650 180, 714 85" fill="none" stroke="#fa8068" stroke-width="5" stroke-linecap="round"/>
+                <circle cx="92" cy="74" r="8" fill="#fffefa" stroke="#14201e" stroke-width="3"/><circle cx="714" cy="85" r="8" fill="#fa8068" stroke="#fffefa" stroke-width="3"/>
+                <circle cx="297" cy="183" r="5" fill="#fffefa" stroke="#fa8068" stroke-width="3"/><circle cx="534" cy="127" r="5" fill="#fffefa" stroke="#fa8068" stroke-width="3"/>
+              </svg>
+              <span class="map-label a">Gulshan</span><span class="map-label b">Liaquatabad</span><span class="map-label c">Saddar</span><span class="map-label d">Numaish</span>
+              <div class="map-legend"><span class="legend-line"></span><span data-i18n="routeOnMap">recommended route</span><span id="mapStatus"></span></div>
+              <div class="map-zoom"><button>+</button><button>−</button></div>
+            </div>
+
+            <div id="routeResults">
+              <article class="route-card" data-route="ev">
+                <div class="route-photo"><img src="/public/images/ev-bus.jpeg" alt="Red electric bus in Karachi" /><span>ev service · ac + accessible</span></div>
+                <div class="route-top"><div class="route-name"><span class="route-badge">EV-03</span><div><strong>Gulshan → Saddar</strong><small data-i18n="directRoute">direct · no changes</small></div></div><div class="route-time"><strong>32 min</strong><small data-i18n="leavesEvery">leaves every 12 min</small></div></div>
+                <div class="stops-line"><span class="station"></span><span>Gulshan Chowrangi</span><span class="track"></span><span>Saddar</span><span class="station end"></span></div>
+                <div class="route-footer"><div class="route-tags"><span class="tag ac">✦ <span data-i18n="ac">AC</span></span><span class="tag wheel">♿ <span data-i18n="accessible">wheelchair</span></span><span class="tag" data-i18n="fixedFare">fixed fare</span></div><button class="fare-btn" data-fare="ev" data-i18n="seeFare">See fare +</button></div>
+                <div class="fare-detail"><span data-i18n="evFareDetail">EV fare · up to 15 km / over 15 km</span><span class="fare-price">Rs 80 / Rs 120</span></div>
+              </article>
+
+              <article class="route-card" data-route="fuel">
+                <div class="route-photo"><img src="/public/images/mazda-bus.jpeg" alt="Decorated Karachi Mazda bus" /><span>fuel service · local favourite</span></div>
+                <div class="route-top"><div class="route-name"><span class="route-badge fuel">R-09</span><div><strong>Gulshan → Saddar</strong><small data-i18n="directRoute">direct · no changes</small></div></div><div class="route-time"><strong>39 min</strong><small data-i18n="leavesEvery">leaves every 18 min</small></div></div>
+                <div class="stops-line"><span class="station"></span><span>Gulshan Chowrangi</span><span class="track"></span><span>Saddar</span><span class="station end"></span></div>
+                <div class="route-footer"><div class="route-tags"><span class="tag" data-i18n="fuelBus">fuel bus</span><span class="tag" data-i18n="cheaper">usually cheaper</span></div><button class="fare-btn" data-fare="fuel" data-i18n="seeFare">See fare +</button></div>
+                <div class="fare-detail"><span data-i18n="fuelFareDetail">Fuel bus fare · varies by bus and stop</span><span class="fare-price">Ask conductor</span></div>
+              </article>
+
+              <article class="route-card" data-route="change">
+                <div class="route-photo"><img src="/public/images/old-city-bus.jpeg" alt="Traditional Karachi city bus" /><span>transfer route · via numaish</span></div>
+                <div class="route-top"><div class="route-name"><span class="route-badge fuel">2×</span><div><strong data-i18n="changeRoute">Via Numaish</strong><small data-i18n="oneChange">1 change · same ticket search</small></div></div><div class="route-time"><strong>45 min</strong><small data-i18n="leavesEvery">leaves every 10 min</small></div></div>
+                <div class="stops-line"><span class="station"></span><span>Gulshan</span><span class="track"></span><span>Numaish</span><span class="track"></span><span>Saddar</span><span class="station end"></span></div>
+                <div class="route-footer"><div class="route-tags"><span class="tag" data-i18n="oneChangeTag">1 change</span><span class="tag" data-i18n="moreOptions">more options</span></div><button class="fare-btn" data-fare="change" data-i18n="seeFare">See fare +</button></div>
+                <div class="fare-detail"><span data-i18n="changeFareDetail">Two fuel buses · fare depends on both rides</span><span class="fare-price">See on board</span></div>
+              </article>
+            </div>
+            <div class="empty-results" id="emptyResults" data-i18n="emptyResults">We couldn't match that route yet. Try a nearby landmark or stop name.</div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <button class="chat-launcher" id="chatOpen"><span class="chat-avatar">✦</span><span data-i18n="askSafar">Ask Safarz</span></button>
+    <section class="chat-window" id="chatWindow" aria-label="Safarz assistant">
+      <div class="chat-head"><div class="chat-person"><span class="chat-avatar">✦</span><div><strong data-i18n="assistantName">Safarz assistant</strong><small><span class="status-dot"></span> <span data-i18n="readyToHelp">ready to help</span></small></div></div><button class="chat-close" id="chatClose">×</button></div>
+      <div class="chat-messages" id="chatMessages"><div class="message" data-i18n="welcomeChat">Assalam-o-alaikum! I can help you use Safarz or find a bus between two stops. Try asking “Which bus goes from Gulshan Chowrangi to Saddar?”</div></div>
+      <div class="quick-replies"><button data-question="How do I use Safarz?" data-i18n="quickHow">How to use?</button><button data-question="Which bus goes from Gulshan Chowrangi to Saddar?" data-i18n="quickBus">Bus to Saddar</button><button data-question="Which electric buses are in the imported Karachi data?" data-i18n="quickAc">AC buses</button></div>
+      <form class="chat-input" id="chatForm"><input id="chatInput" data-placeholder="chatPlaceholder" placeholder="Ask about a route…" /><button class="chat-send">↑</button></form>
+    </section>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script>
+      const translations = {
+        en: {
+          tagline: "karachi bus finder", eyebrow: "your everyday route, sorted", heroTitle: "Go places.<br><em>Not in circles.</em>", heroBody: "Find the right bus from the stop closest to you — with clear timing, simple transfers, and the fare before you leave.", serving: "serving karachi, one stop at a time", planTrip: "Plan your trip", planSub: "Tell us where you are and where you're headed.", from: "from", to: "to", useLocation: "Use my location", recent: "Recent:", trySearch: "Try:", findBuses: "Find buses", backendReady: "Live route data connected", resultsFor: "routes for", sort: "Sort: fastest ↓", routeOnMap: "recommended route", directRoute: "direct · no changes", leavesEvery: "leaves every", ac: "AC", accessible: "wheelchair", fixedFare: "fixed fare", seeFare: "See fare +", evFareDetail: "EV fare · up to 15 km / over 15 km", fuelBus: "fuel bus", cheaper: "usually cheaper", fuelFareDetail: "Fuel bus fare · varies by bus and stop", changeRoute: "Via Numaish", oneChange: "1 change · same ticket search", oneChangeTag: "1 change", moreOptions: "more options", changeFareDetail: "Two fuel buses · fare depends on both rides", emptyResults: "We couldn't match that route yet. Try a nearby landmark or stop name.", askSafar: "Ask Safarz", assistantName: "Safarz assistant", readyToHelp: "ready to help", welcomeChat: "Assalam-o-alaikum! I can help you use Safarz or find a bus between two stops. Try asking “Which bus goes from Gulshan Chowrangi to Saddar?”", quickHow: "How to use?", quickBus: "Bus to Saddar", quickAc: "AC buses", chatPlaceholder: "Ask about a route…", fromPlaceholder: "Pickup stop or landmark", toPlaceholder: "Destination or landmark"
+        },
+        ur: {
+          tagline: "کراچی بس فائنڈر", eyebrow: "آپ کا روزمرہ کا راستہ، آسان", heroTitle: "منزل تک جائیں۔<br><em>چکر نہ لگائیں۔</em>", heroBody: "اپنے قریب ترین اسٹاپ سے صحیح بس تلاش کریں — واضح اوقات، آسان تبدیلیاں اور روانگی سے پہلے کرایہ۔", serving: "کراچی کی ہر منزل، ایک اسٹاپ کے بعد", planTrip: "اپنا سفر پلان کریں", planSub: "بتائیں آپ کہاں ہیں اور کہاں جانا ہے۔", from: "کہاں سے", to: "کہاں تک", useLocation: "میری لوکیشن استعمال کریں", recent: "حالیہ:", trySearch: "آزمائیں:", findBuses: "بسیں تلاش کریں", backendReady: "لائیو روٹ ڈیٹا منسلک ہے", resultsFor: "روٹس برائے", sort: "ترتیب: تیز ترین ↓", routeOnMap: "تجویز کردہ روٹ", directRoute: "براہ راست · تبدیلی نہیں", leavesEvery: "ہر منٹ بعد", ac: "اے سی", accessible: "وہیل چیئر", fixedFare: "مقررہ کرایہ", seeFare: "کرایہ دیکھیں +", evFareDetail: "ای وی کرایہ · 15 کلومیٹر تک / 15 کلومیٹر سے زیادہ", fuelBus: "ایندھن والی بس", cheaper: "عام طور پر سستی", fuelFareDetail: "ایندھن بس کا کرایہ · بس اور اسٹاپ کے حساب سے", changeRoute: "نمائش کے راستے", oneChange: "1 تبدیلی · اسی تلاش میں", oneChangeTag: "1 تبدیلی", moreOptions: "مزید راستے", changeFareDetail: "دو ایندھن بسیں · کرایہ دونوں سفر پر منحصر", emptyResults: "یہ روٹ نہیں ملا۔ قریبی نشانی یا اسٹاپ کا نام آزمائیں۔", askSafar: "سفرز سے پوچھیں", assistantName: "سفرز اسسٹنٹ", readyToHelp: "مدد کے لیے تیار", welcomeChat: "السلام علیکم! میں سفرز استعمال کرنے یا دو اسٹاپ کے درمیان بس تلاش کرنے میں مدد کر سکتا ہوں۔ پوچھیں: “قریب ترین اسٹاپ کیسے تلاش کروں؟”", quickHow: "استعمال کیسے کریں؟", quickBus: "صدر جانے والی بس", quickAc: "اے سی بسیں", chatPlaceholder: "روٹ کے بارے میں پوچھیں…", fromPlaceholder: "پک اَپ اسٹاپ یا نشانی", toPlaceholder: "منزل یا نشانی"
+        },
+        roman: {
+          tagline: "karachi bus finder", eyebrow: "aap ka rozmarra route, sorted", heroTitle: "Manzil tak jao.<br><em>Chakkar na lagao.</em>", heroBody: "Apne qareeb tareen stop se sahi bus dhoondein — wazeh timing, asaan tabdeeliyan aur rawangi se pehle fare.", serving: "karachi ki har manzil, aik stop ke baad", planTrip: "Apna safar plan karein", planSub: "Batayein aap kahan hain aur kahan jana hai.", from: "kahan se", to: "kahan tak", useLocation: "Meri location use karein", recent: "Haliya:", trySearch: "Aazmayein:", findBuses: "Busen dhoondein", backendReady: "Live route data connected hai", resultsFor: "routes baraye", sort: "Tarteeb: fastest ↓", routeOnMap: "tajweez karda route", directRoute: "barah-e-raast · koi tabdeeli nahi", leavesEvery: "har", ac: "AC", accessible: "wheelchair", fixedFare: "fixed fare", seeFare: "Fare dekhein +", evFareDetail: "EV fare · 15 km tak / 15 km se zyada", fuelBus: "fuel bus", cheaper: "aam tor par sasti", fuelFareDetail: "Fuel bus fare · bus aur stop ke hisaab se", changeRoute: "Numaish ke raste", oneChange: "1 tabdeeli · isi search mein", oneChangeTag: "1 tabdeeli", moreOptions: "mazeed routes", changeFareDetail: "Do fuel buses · fare dono rides par depend", emptyResults: "Yeh route nahi mila. Qareebi landmark ya stop ka naam aazmayein.", askSafar: "Safarz se poochein", assistantName: "Safarz assistant", readyToHelp: "madad ke liye tayyar", welcomeChat: "Assalam-o-alaikum! Main Safarz use karne ya do stops ke darmiyan bus dhoondne mein madad kar sakta hoon. Poochein: “Qareeb tareen stop kaise dhoondun?”", quickHow: "Use kaise karein?", quickBus: "Saddar ki bus", quickAc: "AC buses", chatPlaceholder: "Route ke bare mein poochein…", fromPlaceholder: "Pickup stop ya landmark", toPlaceholder: "Manzil ya landmark"
+        }
+      };
+
+      let language = "en";
+      const body = document.body;
+      const applyLanguage = (next) => {
+        language = next;
+        document.documentElement.lang = next === "ur" ? "ur" : "en";
+        document.documentElement.dir = next === "ur" ? "rtl" : "ltr";
+        document.getElementById("brandName").textContent = next === "ur" ? "سفرز" : "safarz";
+        document.title = next === "ur" ? "سفرز — کراچی بس فائنڈر" : "Safarz — Karachi bus finder";
+        document.querySelectorAll("[data-language]").forEach(btn => btn.classList.toggle("active", btn.dataset.language === next));
+        document.querySelectorAll("[data-i18n]").forEach(node => {
+          const value = translations[next][node.dataset.i18n];
+          if (value !== undefined) node.innerHTML = value;
+        });
+        document.querySelectorAll("[data-placeholder]").forEach(node => {
+          const value = translations[next][node.dataset.placeholder];
+          if (value !== undefined) node.placeholder = value;
+        });
+      };
+      document.querySelectorAll("[data-language]").forEach(btn => btn.addEventListener("click", () => applyLanguage(btn.dataset.language)));
+      document.getElementById("themeToggle").addEventListener("click", () => {
+        body.classList.toggle("dark");
+        document.getElementById("themeToggle").textContent = body.classList.contains("dark") ? "☾" : "☼";
+      });
+      document.getElementById("locateBtn").addEventListener("click", () => {
+        const input = document.getElementById("fromInput");
+        input.value = "Near me · Gulshan Chowrangi";
+        document.querySelector(".gps-status span:last-child").textContent = language === "ur" ? "لوکیشن مل گئی" : language === "roman" ? "Location mil gayi" : "Location found";
+      });
+      document.getElementById("swapBtn").addEventListener("click", () => {
+        const from = document.getElementById("fromInput");
+        const to = document.getElementById("toInput");
+        [from.value, to.value] = [to.value, from.value];
+        updateSummary();
+      });
+      const updateSummary = () => {
+        document.getElementById("routeSummary").textContent = `${document.getElementById("fromInput").value} → ${document.getElementById("toInput").value}`;
+      };
+      const API_BASE_URL = window.API_BASE_URL || window.location.origin;
+      const stopSuggestions = document.getElementById("stopSuggestions");
+      const suggestStops = async (value) => {
+        if (value.trim().length < 2) return;
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/stops?q=${encodeURIComponent(value.trim())}`);
+          if (!response.ok) return;
+          const data = await response.json();
+          stopSuggestions.innerHTML = data.stops.map(stop => `<option value="${stop.name}">${stop.nameUrdu || ""}</option>`).join("");
+        } catch (error) {
+          console.warn("Stop suggestions unavailable", error);
+        }
+      };
+      document.querySelectorAll("#fromInput, #toInput").forEach(input => input.addEventListener("input", () => suggestStops(input.value)));
+      let liveMap;
+      let liveRouteLine;
+      let currentRoutes = [];
+      let sortFastest = true;
+      const schematicCoordinates = (route) => {
+        const stops = route.stops?.length ? route.stops : ["Origin", "Destination"];
+        return stops.map((stop, index) => {
+          let hash = 0;
+          for (const character of `${route.id}-${stop}`) hash = (hash * 31 + character.charCodeAt(0)) % 997;
+          const progress = stops.length === 1 ? 0.5 : index / (stops.length - 1);
+          return [24.78 + progress * 0.16 + ((hash % 11) - 5) * 0.002, 66.94 + progress * 0.18 + ((Math.floor(hash / 11) % 11) - 5) * 0.002];
+        });
+      };
+      const updateMap = (route) => {
+        if (!window.L || !route) return;
+        const coordinates = route.coordinates?.some((coordinate, index, values) => index && coordinate[0] !== values[0][0] || index && coordinate[1] !== values[0][1]) ? route.coordinates : schematicCoordinates(route);
+        const mapCard = document.querySelector(".map-card");
+        mapCard.classList.add("live-map");
+        document.getElementById("mapStatus").textContent = route.distanceSource === "osrm" ? " · OSRM road route" : route.distanceSource === "database" ? " · GPS" : " · map service unavailable";
+        if (!liveMap) {
+          liveMap = L.map("leafletMap", { zoomControl: false }).setView(coordinates[0], 11);
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(liveMap);
+        }
+        if (liveRouteLine) liveRouteLine.remove();
+        liveRouteLine = L.polyline(coordinates, { color: "#d95d43", weight: 5 }).addTo(liveMap);
+        liveMap.fitBounds(liveRouteLine.getBounds(), { padding: [25, 25] });
+        window.setTimeout(() => liveMap.invalidateSize(), 0);
+      };
+
+      const renderApiRoutes = (routes) => {
+        currentRoutes = routes;
+        const container = document.getElementById("routeResults");
+        container.innerHTML = routes.map(route => `
+          <article class="route-card">
+            <div class="route-photo"><img src="${route.imageUrl || "/public/images/old-city-bus.jpeg"}" alt="${route.busName}" /><span>${route.category.replaceAll("_", " ")} · ${route.routeCode}</span></div>
+            <div class="route-top"><div class="route-name"><span class="route-badge ${route.vehicleType === "fuel" ? "fuel" : ""}">${route.routeCode}</span><div><strong>${route.busName}${route.recommended ? " · Best route" : ""}</strong><small>${route.changes ? `Connecting · ${route.changes} change${route.changes > 1 ? "s" : ""}` : "Direct · no changes"}</small></div></div><div class="route-time"><strong>${route.distanceKm === null ? "Distance unavailable" : `${route.distanceKm} km`}</strong><small>${route.distanceSource === "osrm" ? "road distance" : route.distanceSource === "database" ? "GPS distance" : "estimated from stop count"}</small></div></div>
+            <div class="stops-line"><span class="station"></span><span>${route.stops[0] || "Origin"}</span><span class="track"></span><span>${route.stops[route.stops.length - 1] || "Destination"}</span><span class="station end"></span></div>
+            <div class="route-legs">${route.legs?.length ? route.legs.map((leg, index) => `<div><b>Bus ${index + 1}: ${leg.routeCode}</b> · ${leg.stops[0]} → ${leg.stops[leg.stops.length - 1]}</div>`).join("") : `<div><b>${route.routeCode}</b> · ${route.stops[0] || "Origin"} → ${route.stops[route.stops.length - 1] || "Destination"}</div>`}</div>
+            <div class="route-footer"><div class="route-tags">${route.features.map(feature => `<span class="tag">${feature}</span>`).join("")}<span class="tag">${route.category.replaceAll("_", " ")}</span></div><button class="sort-btn show-map" data-route-id="${route.id}">Show on map</button><button class="fare-btn" data-fare="api-${route.id}">See fare +</button></div>
+            <div class="fare-detail"><span>Fare information</span><span class="fare-price">${route.fare?.label || "Unavailable"}</span></div>
+          </article>`).join("");
+        if (routes[0]) updateMap(routes[0]);
+        container.querySelectorAll(".show-map").forEach(button => button.addEventListener("click", () => {
+          const selected = currentRoutes.find(route => route.id === button.dataset.routeId);
+          if (selected) updateMap(selected);
+        }));
+        container.querySelectorAll(".fare-btn").forEach(btn => btn.addEventListener("click", () => {
+          const details = btn.closest(".route-card").querySelector(".fare-detail");
+          details.classList.toggle("open");
+          btn.textContent = details.classList.contains("open") ? "Hide fare −" : "See fare +";
+        }));
+      };
+      document.getElementById("searchBtn").addEventListener("click", async () => {
+        updateSummary();
+        const from = document.getElementById("fromInput").value.trim();
+        const to = document.getElementById("toInput").value.trim();
+        if (!from || !to) return;
+        const button = document.getElementById("searchBtn");
+        button.disabled = true;
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/routes?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+          if (!response.ok) throw new Error("Route request failed");
+          const data = await response.json();
+          const empty = !data.routes?.length;
+          document.getElementById("routeResults").style.display = empty ? "none" : "block";
+          document.getElementById("emptyResults").style.display = empty ? "block" : "none";
+          if (!empty) renderApiRoutes(data.routes);
+        } catch (error) {
+          console.error(error);
+          document.getElementById("routeResults").style.display = "none";
+          const emptyResults = document.getElementById("emptyResults");
+          emptyResults.textContent = "Unable to connect to the Safarz server. Start it with: npm start";
+          emptyResults.style.display = "block";
+        } finally {
+          button.disabled = false;
+        }
+      });
+      document.querySelectorAll(".fare-btn").forEach(btn => btn.addEventListener("click", () => {
+        const details = btn.closest(".route-card").querySelector(".fare-detail");
+        details.classList.toggle("open");
+        btn.textContent = details.classList.contains("open") ? (language === "ur" ? "کرایہ چھپائیں −" : language === "roman" ? "Fare chupayein −" : "Hide fare −") : translations[language].seeFare;
+      }));
+      document.getElementById("sortBtn").addEventListener("click", () => {
+        if (!currentRoutes.length) return;
+        sortFastest = !sortFastest;
+        document.getElementById("sortBtn").textContent = sortFastest ? "Sort: shortest distance ↓" : "Sort: longest distance ↑";
+        const sorted = [...currentRoutes].sort((left, right) => {
+          const distanceDifference = (left.distanceKm || Number.MAX_SAFE_INTEGER) - (right.distanceKm || Number.MAX_SAFE_INTEGER);
+          return (sortFastest ? 1 : -1) * distanceDifference;
+        });
+        renderApiRoutes(sorted);
+      });
+
+      const chatWindow = document.getElementById("chatWindow");
+      const chatHistory = [];
+      document.getElementById("chatOpen").addEventListener("click", () => chatWindow.classList.toggle("open"));
+      document.getElementById("chatClose").addEventListener("click", () => chatWindow.classList.remove("open"));
+      const addMessage = (text, user = false) => {
+        const el = document.createElement("div");
+        el.className = `message${user ? " user" : ""}`;
+        el.textContent = text;
+        document.getElementById("chatMessages").appendChild(el);
+        document.getElementById("chatMessages").scrollTop = 9999;
+      };
+      const assistantReply = async (question) => {
+        try {
+          // Chat questions should be grounded in stops named in the question,
+          // not the unrelated defaults in the trip planner.
+          const response = await fetch(`${API_BASE_URL}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: question, history: chatHistory.slice(-8) }) });
+          const data = await response.json();
+          if (response.ok && data.answer) {
+            chatHistory.push({ role: "user", content: question }, { role: "assistant", content: data.answer });
+            return data.answer;
+          }
+          return data.error || "I could not answer that from the imported bus data.";
+        } catch (error) {
+          return "I cannot reach the Safarz server right now. Please make sure you started the app with: npm start";
+        }
+      };
+      const submitChat = (question) => {
+        if (!question.trim()) return;
+        addMessage(question, true);
+        addMessage("Thinking…");
+        const messages = document.getElementById("chatMessages");
+        const pending = messages.lastElementChild;
+        assistantReply(question).then(answer => {
+          pending.textContent = answer;
+        }).catch(error => {
+          console.error("Chatbot error", error);
+          pending.textContent = "I could not answer right now. Please check that Safarz is running with: npm start";
+        });
+      };
+      document.getElementById("chatForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const input = document.getElementById("chatInput");
+        submitChat(input.value);
+        input.value = "";
+      });
+      document.querySelectorAll(".quick-replies button").forEach(btn => btn.addEventListener("click", () => submitChat(btn.dataset.question)));
+
+      applyLanguage("en");
+    </script>
+  </body>
+</html>

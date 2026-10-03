@@ -1,0 +1,16 @@
+{
+  "name": "karachi-bus-finder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Safarz — Karachi bus route finder front end and SQL/maps integration starter",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
